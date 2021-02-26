@@ -14,5 +14,44 @@ test('DynamoDB Table Craeted', () => {
             code: lambda.Code.fromInline('test')
         })
     });
-    expectCDK(stack).to(haveResource("AWS::DynamoDB::Table"));
+    expectCDK(stack).to(haveResource("AWS::DynamoDB::Table", {
+        SSESpecification: {
+            SSEEnabled: true
+        }
+    }));
 })
+
+test('Lambda has environment variables', () => {
+    const stack = new cdk.Stack();
+    new HitCounter(stack, 'MyTestConstruct', {
+        downstream: new lambda.Function(stack, 'TestFunction', {
+            runtime: lambda.Runtime.NODEJS_10_X,
+            handler: 'lambda.handler',
+            code: lambda.Code.inline('test')
+        })
+    });
+    
+    expectCDK(stack).to(haveResource("AWS::Lambda::Function", {
+        Environment: {
+            Variables: {
+                DOWNSTREAM_FUNCTION_NAME: {"Ref": "TestFunction22AD90FC"},
+                HITS_TABLE_NAME: {"Ref": "MyTestConstructHits24A357F0"}
+            }
+        }
+    }));
+})
+
+test('read capacity can be configured', () => {
+    const stack = new cdk.Stack();
+
+    expect(() => {
+        new HitCounter(stack, 'MyTestConstruct', {
+            downstream: new lambda.Function(stack, 'TestFunction', {
+                runtime: lambda.Runtime.NODEJS_10_X,
+                handler: 'lambda.handler',
+                code: lambda.Code.inline('test')
+            }),
+            readCapacity: 3
+        });
+    }).toThrowError(/readCapacity must be between 5 and 20/);
+});
